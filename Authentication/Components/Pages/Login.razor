@@ -1,0 +1,42 @@
+@page "/login"
+@using Authentication.Models
+@using Microsoft.AspNetCore.Mvc.ModelBinding
+@layout MainLayout
+
+<div>
+    <h1>Login Page</h1>
+    <EditForm Model="Model" OnValidSubmit="Submit" FormName="LoginForm">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div>
+            <label>
+                UserName:
+                <InputText @bind-Value="Model!.Username"></InputText>
+            </label>
+        </div>
+        <div>
+            <label>
+                Password:
+                <InputText type="password" @bind-Value="Model!.Password"></InputText>
+            </label>
+        </div>
+        <div>
+            <button type="submit">Submit</button>
+        </div>
+    </EditForm>
+    <NavLink href="register">create new user</NavLink>
+</div>
+
+
+@code {
+    [SupplyParameterFromForm]
+    private LoginParams? Model { get; set; }
+
+    protected override void OnInitialized() =>
+        Model ??= new LoginParams();
+
+    private void Submit()
+    {
+        
+    }
+}
