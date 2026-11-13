@@ -71,16 +71,22 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
 
-app.MapGet("/auth/google", async (IAuthenticationSchemeProvider schemes) =>
+app.MapGet("/auth/google", async (
+    IAuthenticationSchemeProvider schemes,
+    SignInManager<ApplicationUser> signInManager) =>
 {
     if (await schemes.GetSchemeAsync(GoogleDefaults.AuthenticationScheme) is null)
     {
         return Results.Redirect("/login?externalError=notconfigured");
     }
 
-    return Results.Challenge(
-        new AuthenticationProperties { RedirectUri = "/auth/google/callback" },
-        [GoogleDefaults.AuthenticationScheme]);
+    // ConfigureExternalAuthenticationProperties records the provider name in the
+    // external auth cookie; SignInManager.GetExternalLoginInfoAsync() requires it.
+    var properties = signInManager.ConfigureExternalAuthenticationProperties(
+        GoogleDefaults.AuthenticationScheme,
+        "/auth/google/callback");
+
+    return Results.Challenge(properties, [GoogleDefaults.AuthenticationScheme]);
 });
 
 app.MapGet("/auth/google/callback", async (

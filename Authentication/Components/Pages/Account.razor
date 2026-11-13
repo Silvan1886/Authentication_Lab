@@ -1,0 +1,116 @@
+@page "/account"
+@attribute [Authorize]
+@using Authentication.Data
+@using Authentication.Models
+@using Microsoft.AspNetCore.Identity
+@layout MainLayout
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+@inject NavigationManager NavigationManager
+
+<PageTitle>Account</PageTitle>
+
+<h1>Account</h1>
+
+@if (_user is not null)
+{
+    <p>Email: <strong>@_user.Email</strong></p>
+    <p>Username: <strong>@_user.UserName</strong></p>
+
+    <EditForm Model="Model" OnValidSubmit="ChangeUsername" FormName="ChangeUsernameForm">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div>
+            <label>
+                New username:
+                <InputText @bind-Value="Model!.Username"></InputText>
+            </label>
+        </div>
+        <div>
+            <button type="submit">Change username</button>
+        </div>
+    </EditForm>
+}
+else
+{
+    <p class="text-danger">Could not load the signed-in user.</p>
+}
+
+@if (Error is not null)
+{
+    <p class="text-danger">@Error</p>
+}
+@if (Success is not null)
+{
+    <p class="text-success">@Success</p>
+}
+@if (Updated)
+{
+    <p class="text-success">Username updated.</p>
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationState { get; set; }
+
+    [SupplyParameterFromForm]
+    private ChangeUsernameParams? Model { get; set; }
+
+    [SupplyParameterFromQuery(Name = "updated")]
+    private bool Updated { get; set; }
+
+    private ApplicationUser? _user;
+    private string? Error;
+    private string? Success;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthenticationState is null)
+        {
+            return;
+        }
+
+        var state = await AuthenticationState;
+        _user = await UserManager.GetUserAsync(state.User);
+        if (_user is not null)
+        {
+            Model ??= new ChangeUsernameParams { Username = _user.UserName ?? string.Empty };
+        }
+    }
+
+    private async Task ChangeUsername()
+    {
+        Error = null;
+        Success = null;
+
+        if (_user is null)
+        {
+            Error = "Could not load the signed-in user.";
+            return;
+        }
+
+        var newUsername = Model!.Username.Trim();
+        if (string.Equals(newUsername, _user.UserName, StringComparison.Ordinal))
+        {
+            Success = "Username unchanged.";
+            return;
+        }
+
+        var existing = await UserManager.FindByNameAsync(newUsername);
+        if (existing is not null && existing.Id != _user.Id)
+        {
+            Error = "That username is already taken.";
+            return;
+        }
+
+        var result = await UserManager.SetUserNameAsync(_user, newUsername);
+        if (!result.Succeeded)
+        {
+            Error = string.Join(" ", result.Errors.Select(e => e.Description));
+            return;
+        }
+
+        await SignInManager.RefreshSignInAsync(_user);
+        NavigationManager.NavigateTo("/account?updated=true");
+    }
+}
