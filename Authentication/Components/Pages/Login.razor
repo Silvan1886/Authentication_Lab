@@ -1,7 +1,11 @@
 @page "/login"
+@using Authentication.Data
 @using Authentication.Models
+@using Microsoft.AspNetCore.Identity
 @using Microsoft.AspNetCore.Mvc.ModelBinding
 @layout MainLayout
+@inject SignInManager<ApplicationUser> SignInManager
+@inject NavigationManager NavigationManager
 
 <div>
     <h1>Login Page</h1>
@@ -24,6 +28,14 @@
             <button type="submit">Submit</button>
         </div>
     </EditForm>
+    @if (Error is not null)
+    {
+        <p class="text-danger">@Error</p>
+    }
+    @if (ExternalErrorMessage is not null)
+    {
+        <p class="text-danger">@ExternalErrorMessage</p>
+    }
     <div>
         <a href="/auth/google">Sign in with Google</a>
     </div>
@@ -35,11 +47,51 @@
     [SupplyParameterFromForm]
     private LoginParams? Model { get; set; }
 
+    [SupplyParameterFromQuery(Name = "externalError")]
+    private string? ExternalError { get; set; }
+
+    private string? Error { get; set; }
+
+    private string? ExternalErrorMessage => ExternalError switch
+    {
+        null => null,
+        "notconfigured" => "Google sign-in is not configured.",
+        "locked" => "This account is locked out. Try again later.",
+        "noemail" => "Google did not provide an email address.",
+        "emailexists" => "An account with this email already exists. Sign in with your password instead.",
+        "createfailed" => "Could not create an account from this Google login.",
+        _ => "Google sign-in failed. Please try again."
+    };
+
     protected override void OnInitialized() =>
         Model ??= new LoginParams();
 
-    private void Submit()
+    private async Task Submit()
     {
-        
+        Error = null;
+
+        var result = await SignInManager.PasswordSignInAsync(
+            Model!.Username, Model.Password, isPersistent: false, lockoutOnFailure: true);
+
+        if (result.Succeeded)
+        {
+            NavigationManager.NavigateTo("/");
+        }
+        else if (result.RequiresTwoFactor)
+        {
+            Error = "This account requires two-factor authentication, which is not configured.";
+        }
+        else if (result.IsLockedOut)
+        {
+            Error = "This account is locked out. Try again later.";
+        }
+        else if (result.IsNotAllowed)
+        {
+            Error = "This account is not allowed to sign in.";
+        }
+        else
+        {
+            Error = "Invalid username or password.";
+        }
     }
 }

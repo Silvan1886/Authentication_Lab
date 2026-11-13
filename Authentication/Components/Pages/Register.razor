@@ -1,7 +1,12 @@
 @page "/register"
+@using Authentication.Data
 @using Authentication.Models
+@using Microsoft.AspNetCore.Identity
 @using Microsoft.AspNetCore.Mvc.ModelBinding
 @layout MainLayout
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+@inject NavigationManager NavigationManager
 
 <div>
     <h1>Register Page</h1>
@@ -16,6 +21,12 @@
         </div>
         <div>
             <label>
+                Email:
+                <InputText type="email" @bind-Value="Model!.Email"></InputText>
+            </label>
+        </div>
+        <div>
+            <label>
                 Password:
                 <InputText type="password" @bind-Value="Model!.Password"></InputText>
             </label>
@@ -24,19 +35,42 @@
             <button type="submit">Submit</button>
         </div>
     </EditForm>
+    @if (Errors.Count > 0)
+    {
+        <ul class="text-danger">
+            @foreach (var error in Errors)
+            {
+                <li>@error</li>
+            }
+        </ul>
+    }
     <NavLink href="login">login instead</NavLink>
 </div>
 
 
 @code {
     [SupplyParameterFromForm]
-    private LoginParams? Model { get; set; }
+    private RegisterParams? Model { get; set; }
+
+    private List<string> Errors { get; } = [];
 
     protected override void OnInitialized() =>
-        Model ??= new LoginParams();
+        Model ??= new RegisterParams();
 
-    private void Submit()
+    private async Task Submit()
     {
-        
+        Errors.Clear();
+
+        var user = new ApplicationUser { UserName = Model!.Username, Email = Model.Email };
+        var result = await UserManager.CreateAsync(user, Model.Password);
+
+        if (!result.Succeeded)
+        {
+            Errors.AddRange(result.Errors.Select(e => e.Description));
+            return;
+        }
+
+        await SignInManager.SignInAsync(user, isPersistent: false);
+        NavigationManager.NavigateTo("/");
     }
 }
